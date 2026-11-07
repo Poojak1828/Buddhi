@@ -1,0 +1,400 @@
+// Buddhi Prisma Schema
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum AcademicLevel {
+  SCHOOL_SECONDARY      // Class 1-10
+  SENIOR_SECONDARY_PREP // Class 11-12 (JEE / NEET / Boards)
+  UNDERGRADUATE_DEGREE  // College / B.Tech / B.Sc / MBBS / Degree
+  POSTGRADUATE          // Masters / PhD / Professional
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PlanStatus {
+  DRAFT
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum TopicStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum SessionType {
+  POMODORO
+  SHORT_BREAK
+  LONG_BREAK
+}
+
+enum ActionSource {
+  WEB_UI
+  SWITCH_MATTERMOST
+  SWITCH_TELEGRAM
+  API
+}
+
+enum ActionStatus {
+  SUGGESTED
+  APPROVED
+  REJECTED
+  EXECUTED
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String
+  name         String
+  role         Role          @default(STUDENT)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  profile      UserProfile?
+  subjects     Subject[]
+  studyPlans   StudyPlan[]
+  studyTasks   StudyTask[]
+  notes        Note[]
+  flashcards   Flashcard[]
+  quizzes      Quiz[]
+  quizAttempts QuizAttempt[]
+  sessions     StudySession[]
+  conversations AIConversation[]
+  agentActions AgentAction[]
+  switchRooms  SwitchRoom[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id                   String        @id @default(uuid())
+  userId               String        @unique
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  academicLevel        AcademicLevel @default(SENIOR_SECONDARY_PREP)
+  gradeClass           String?       @default("Class 12") // Class 1 to Class 12, Degree
+  board                String?       @default("CBSE") // CBSE, ICSE, State Board
+  stream               String?       @default("Science") // Science, Commerce, Arts (for 11 & 12)
+  courseOrDegree       String?       @default("General Science")
+  targetExams          String?       @default("Board Exams & Entrance")
+  dailyAvailableHours  Float         @default(4.0)
+  studyGoals           String?       @default("Master syllabus with conceptual clarity and high test performance")
+  preferredSchedule    String?       @default("EVENING") // MORNING, AFTERNOON, EVENING, NIGHT
+  stressLevelNotes     String?       // Empathetic tracker for emotional check-ins
+  streakCount          Int           @default(1)
+  lastActiveDate       DateTime      @default(now())
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@map("user_profiles")
+}
+
+model Subject {
+  id                 String       @id @default(uuid())
+  userId             String
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name               String
+  code               String?
+  color              String       @default("#38BDF8")
+  icon               String       @default("book")
+  examDate           DateTime?
+  targetScore        Float?       @default(90.0)
+  syllabusCompletion Float        @default(0.0)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  chapters           Chapter[]
+  studyPlans         StudyPlan[]
+  studyTasks         StudyTask[]
+  notes              Note[]
+  flashcards         Flashcard[]
+  quizzes            Quiz[]
+  sessions           StudySession[]
+
+  @@map("subjects")
+}
+
+model Chapter {
+  id         String     @id @default(uuid())
+  subjectId  String
+  subject    Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  title      String
+  orderIndex Int        @default(0)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  topics     Topic[]
+
+  @@map("chapters")
+}
+
+model Topic {
+  id         String      @id @default(uuid())
+  chapterId  String
+  chapter    Chapter     @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  title      String
+  status     TopicStatus @default(NOT_STARTED)
+  difficulty Difficulty  @default(MEDIUM)
+  orderIndex Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@map("topics")
+}
+
+model StudyPlan {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectId       String?
+  subject         Subject?    @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  title           String
+  description     String?
+  targetExamDate  DateTime?
+  dailyHours      Float       @default(3.0)
+  currentPrepLevel String     @default("Intermediate")
+  status          PlanStatus  @default(APPROVED)
+  planSummary     String?
+  rawScheduleJson String?     // Serialized JSON with daily task schedules & revision milestones
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  tasks           StudyTask[]
+  agentActions    AgentAction[]
+
+  @@map("study_plans")
+}
+
+model StudyTask {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studyPlanId String?
+  studyPlan   StudyPlan?  @relation(fields: [studyPlanId], references: [id], onDelete: SetNull)
+  subjectId   String?
+  subject     Subject?    @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  title       String
+  description String?
+  dueDate     DateTime?
+  priority    Priority    @default(MEDIUM)
+  status      TaskStatus  @default(PENDING)
+  durationMin Int         @default(45)
+  isCompleted Boolean     @default(false)
+  completedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("study_tasks")
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectId String?
+  subject   Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  title     String
+  content   String   // Markdown formatted note content
+  isPinned  Boolean  @default(false)
+  tags      String?  // comma-separated tags
+  fileName  String?  // Uploaded file name
+  fileUrl   String?  // File path or Cloud/Drive link
+  fileType  String?  // pdf, txt, docx, drive, etc.
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notes")
+}
+
+model Flashcard {
+  id            String     @id @default(uuid())
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectId     String?
+  subject       Subject?   @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  deckTitle     String     @default("General Deck")
+  chapterTitle  String?
+  topicTitle    String?
+  question      String
+  answer        String
+  keyConcept    String?
+  difficulty    Difficulty @default(MEDIUM)
+  reviewCount   Int        @default(0)
+  masteryStatus String     @default("LEARNING") // LEARNING, MASTERED, NEEDS_REVIEW
+  lastReviewed  DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@map("flashcards")
+}
+
+model Quiz {
+  id             String         @id @default(uuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectId      String?
+  subject        Subject?       @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  title          String
+  topic          String?
+  chapterTitle   String?
+  difficulty     Difficulty     @default(MEDIUM)
+  quizType       String         @default("MCQ") // "MCQ" | "SHORT_ANSWER" | "LONG_ANSWER"
+  totalQuestions Int            @default(20)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  questions      QuizQuestion[]
+  attempts       QuizAttempt[]
+
+  @@map("quizzes")
+}
+
+model QuizQuestion {
+  id           String   @id @default(uuid())
+  quizId       String
+  quiz         Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  questionText String
+  questionType String   @default("MCQ") // "MCQ" | "SHORT_ANSWER" | "LONG_ANSWER"
+  optionsJson  String   // JSON string array of options: ["A", "B", "C", "D"] or empty array
+  correctIndex Int      @default(0)
+  sampleAnswer String?  // Ideal reference answer for short/long answers
+  keyPointsJson String? // Key concept points expected in answers
+  explanation  String?
+  orderIndex   Int      @default(0)
+
+  @@map("quiz_questions")
+}
+
+model QuizAttempt {
+  id               String   @id @default(uuid())
+  quizId           String
+  quiz             Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  score            Int
+  totalQuestions   Int
+  percentage       Float
+  userAnswersJson  String   // JSON array of selected options or written text
+  feedback         String?  // Psychological & educational encouragement
+  evaluationJson   String?  // Per-question grading, strengths, mistakes, improvement tips
+  timeSpentSeconds Int?     @default(0)
+  createdAt        DateTime @default(now())
+
+  @@map("quiz_attempts")
+}
+
+model StudySession {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectId       String?
+  subject         Subject?    @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  durationMinutes Int
+  sessionType     SessionType @default(POMODORO)
+  notes           String?
+  completedAt     DateTime    @default(now())
+
+  @@map("study_sessions")
+}
+
+model AIConversation {
+  id           String      @id @default(uuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String      @default("Study Consultation")
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  messages     AIMessage[]
+
+  @@map("ai_conversations")
+}
+
+model AIMessage {
+  id             String         @id @default(uuid())
+  conversationId String
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String         // "user" | "assistant"
+  content        String
+  emotionalTone  String?        // "supportive", "analytical", "calming", etc.
+  createdAt      DateTime       @default(now())
+
+  @@map("ai_messages")
+}
+
+model AgentAction {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studyPlanId    String?
+  studyPlan      StudyPlan?   @relation(fields: [studyPlanId], references: [id], onDelete: SetNull)
+  actionType     String       // "CREATE_PLAN", "REORGANIZE_SCHEDULE", "GENERATE_QUIZ", "UPDATE_TASK"
+  source         ActionSource @default(WEB_UI)
+  summary        String
+  payloadJson    String?      // Details of proposed changes
+  status         ActionStatus @default(SUGGESTED)
+  switchRoomId   String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("agent_actions")
+}
+
+model SwitchRoom {
+  id             String          @id @default(uuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String          @default("Buddhi Study Room")
+  platform       String          @default("TELEGRAM") // TELEGRAM, SWITCH_CONSOLE
+  telegramChatId String?
+  isShared       Boolean         @default(true)
+  teammates      SwitchTeammate[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@map("switch_rooms")
+}
+
+model SwitchTeammate {
+  id        String     @id @default(uuid())
+  roomId    String
+  room      SwitchRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  name      String
+  handle    String?    // e.g. @priya_studies, @rahul_jee
+  role      String     @default("STUDENT") // STUDENT, STUDY_BUDDY, MENTOR, GROUP
+  isAdded   Boolean    @default(true)
+  joinedAt  DateTime   @default(now())
+
+  @@map("switch_teammates")
+}

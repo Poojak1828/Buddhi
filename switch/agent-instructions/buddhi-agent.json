@@ -1,0 +1,26 @@
+{
+  "name": "Buddhi Study Agent",
+  "version": "1.0.0",
+  "description": "Empathetic AI study teammate for Flip the Switch Hackathon 2026. Bridges student chat rooms in Mattermost with academic task planning, quiz generation, and database sync.",
+  "protocol": "switch-agent-v1",
+  "provider": "custom-webhook",
+  "rooms": ["buddhi-study-room"],
+  "triggers": ["@buddhi", "buddhi", "plan", "task", "quiz", "reorganize", "completed task"],
+  "endpoints": {
+    "webhook": "http://localhost:5000/api/switch/webhook",
+    "status": "http://localhost:5000/api/switch/status",
+    "actions": "http://localhost:5000/api/switch/actions"
+  },
+  "permissions": [
+    "tasks:read",
+    "tasks:write",
+    "plans:create",
+    "quizzes:generate",
+    "analytics:read"
+  ],
+  "psychologicalGuidelines": {
+    "empathyMode": true,
+    "shamePrevention": true,
+    "burnoutBufferHours": 48
+  }
+}

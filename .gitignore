@@ -1,0 +1,26 @@
+# Node modules
+node_modules/
+dist/
+build/
+.next/
+
+# Database files
+.db_data/
+*.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
+
+# Prisma generated
+backend/src/generated/

@@ -1,0 +1,24 @@
+{
+  "name": "buddhi-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Buddhi - Full-Stack AI Study Companion for Flip the Switch Hackathon 2026",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install",
+    "db:init": "node scripts/db-manage.js init",
+    "db:start": "node scripts/db-manage.js start",
+    "db:stop": "node scripts/db-manage.js stop",
+    "db:setup": "node scripts/db-manage.js setup",
+    "db:migrate": "npm --prefix backend run db:migrate",
+    "db:seed": "npm --prefix backend run db:seed",
+    "switch:demo": "npm --prefix backend run switch:demo",
+    "test:switch-exam": "npx --prefix backend tsx scripts/test-switch-exam-workflow.ts"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
